@@ -5,10 +5,13 @@ from typing import Annotated, Callable
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+from supabase_auth.errors import AuthApiError
 
 from app.core.database import get_db
 from app.core.security import TokenError, decode_access_token
+from app.core.supabase import SupabaseNotConfigured, get_supabase
 from app.models.enums import UserRole
 from app.models.user import User
 
@@ -86,6 +89,47 @@ def get_current_user(
     return user
 
 
+def _reclaim_stale_email(db: Session, email: str, new_user_id: uuid.UUID) -> None:
+    """Before inserting a new `users` row, check whether another row
+    already owns `email` under a different id, and resolve it if so.
+
+    This happens when a Supabase auth user is deleted and a new one is
+    created with the same email (e.g. during testing, or once account
+    deletion ships): our row from the old identity is orphaned but still
+    holds the unique email constraint, which would otherwise crash the
+    INSERT below with a raw IntegrityError / 500. We confirm via the
+    Supabase admin API whether the old identity truly no longer exists
+    (status 404 / user_not_found) before deleting its row — any other
+    failure (network blip, misconfiguration, a genuinely different error)
+    is left to propagate rather than risk deleting live data on a false
+    positive. If the old identity does still exist, this is a real
+    collision (e.g. two unlinked identities sharing an email) and we
+    surface a clear 409 instead of a 500.
+    """
+    existing = db.scalar(select(User).where(User.email == email, User.id != new_user_id))
+    if existing is None:
+        return
+
+    try:
+        get_supabase().auth.admin.get_user_by_id(str(existing.id))
+    except AuthApiError as exc:
+        if exc.status != 404:
+            raise
+        # Confirmed: the old Supabase identity is gone. Safe to drop the
+        # orphaned row and let the caller proceed to create the new one.
+        db.delete(existing)
+        db.commit()
+        return
+    except SupabaseNotConfigured:
+        # Can't verify either way — don't guess; let the real error surface.
+        pass
+
+    raise HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail="This email is already associated with a different account.",
+    )
+
+
 def get_or_create_user(
     claims: Annotated[TokenClaims, Depends(get_token_claims)],
     db: Annotated[Session, Depends(get_db)],
@@ -96,6 +140,8 @@ def get_or_create_user(
     profile with a chosen role."""
     user = db.get(User, claims.user_id)
     if user is None:
+        if claims.email:
+            _reclaim_stale_email(db, claims.email, claims.user_id)
         user = User(
             id=claims.user_id,
             email=claims.email or f"{claims.user_id}@users.noemail",
