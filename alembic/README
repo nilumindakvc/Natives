@@ -1,0 +1,13 @@
+Alembic migrations for the Natives backend.
+
+Common commands (run from the backend/ directory with your venv active and a
+valid DATABASE_URL in .env):
+
+  alembic upgrade head        # apply all migrations
+  alembic downgrade -1        # roll back one migration
+  alembic revision --autogenerate -m "describe change"   # new migration
+  alembic current             # show current revision
+  alembic history             # list revisions
+
+The database URL is read from app settings (app/core/config.py) in env.py, so
+you do not set sqlalchemy.url in alembic.ini.

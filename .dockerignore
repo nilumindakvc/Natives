@@ -1,0 +1,30 @@
+# Never send real secrets into the build context / image.
+.env
+.env.*
+
+# Local virtualenv / Python cruft — reinstalled from requirements.txt inside
+# the image instead.
+.venv/
+venv/
+env/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+
+# VCS / editor / OS
+.git/
+.gitignore
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Docker build files themselves don't need to be in the context's copied
+# layers, and docs aren't needed at runtime.
+Dockerfile
+.dockerignore
+docker-compose*.yml
+README.md

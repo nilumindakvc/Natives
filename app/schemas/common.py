@@ -1,0 +1,17 @@
+"""Shared schema helpers."""
+from typing import Generic, TypeVar
+
+from pydantic import BaseModel
+
+T = TypeVar("T")
+
+
+class Message(BaseModel):
+    detail: str
+
+
+class Page(BaseModel, Generic[T]):
+    items: list[T]
+    total: int
+    limit: int
+    offset: int
