@@ -49,3 +49,16 @@ class AdminUserUpdate(BaseModel):
     """Admin account management."""
     role: Optional[UserRole] = None
     is_active: Optional[bool] = None
+
+
+class UserPublicOut(BaseModel):
+    """Minimal public profile safe to expose to a chat counterparty.
+
+    Deliberately excludes email/phone/address so opening a conversation
+    doesn't leak contact details.
+    """
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    full_name: Optional[str] = None
+    avatar_url: Optional[str] = None

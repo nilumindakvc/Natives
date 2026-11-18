@@ -4,6 +4,8 @@ from fastapi import APIRouter
 from app.api.routes import (
     admin,
     categories,
+    chat_ws,
+    conversations,
     favorites,
     follows,
     listings,
@@ -21,3 +23,5 @@ api_router.include_router(favorites.router)
 api_router.include_router(follows.router)
 api_router.include_router(seller.router)
 api_router.include_router(admin.router)
+api_router.include_router(conversations.router)
+api_router.include_router(chat_ws.router)
