@@ -66,6 +66,10 @@ class Listing(Base, TimestampMixin):
     location: Mapped[Optional[str]] = mapped_column(String(255), index=True)
     images: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
 
+    # Seller-defined customization inputs for order requests:
+    # a list of {key, label, type, required} the order form renders.
+    customization_fields: Mapped[list] = mapped_column(JSONB, default=list, server_default="[]")
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
     status: Mapped[ListingStatus] = mapped_column(
         SAEnum(ListingStatus, name="listing_status"),

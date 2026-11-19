@@ -30,3 +30,10 @@ class ListingStatus(str, enum.Enum):
     active = "active"
     inactive = "inactive"
     hidden = "hidden"  # hidden by an administrator during moderation
+
+
+class OrderStatus(str, enum.Enum):
+    """Forward-only order lifecycle (no cancellation yet)."""
+    pending = "pending"      # customer requested
+    quoted = "quoted"        # seller provided final details
+    confirmed = "confirmed"  # customer confirmed the quote

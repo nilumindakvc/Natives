@@ -5,19 +5,16 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.order import OrderSummary
 from app.schemas.seller import SellerOut
 from app.schemas.user import UserPublicOut
-
-
-class ConversationCreate(BaseModel):
-    seller_id: uuid.UUID
-    listing_id: Optional[uuid.UUID] = None
 
 
 class ConversationOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    order_id: uuid.UUID
     customer_id: uuid.UUID
     seller_id: uuid.UUID
     listing_id: Optional[uuid.UUID] = None
@@ -27,6 +24,7 @@ class ConversationOut(BaseModel):
     unread_count: int = 0
     seller: Optional[SellerOut] = None
     customer: Optional[UserPublicOut] = None
+    order: Optional[OrderSummary] = None
 
 
 class MessageOut(BaseModel):

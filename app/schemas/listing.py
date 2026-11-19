@@ -2,11 +2,19 @@
 import uuid
 from datetime import datetime
 from decimal import Decimal
-from typing import Optional
+from typing import Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.enums import ListingKind, ListingStatus, ListingType
+
+
+class CustomizationField(BaseModel):
+    """One seller-defined input a customer fills when ordering this listing."""
+    key: str = Field(min_length=1, max_length=64)
+    label: str = Field(min_length=1, max_length=120)
+    type: Literal["text", "number", "date"] = "text"
+    required: bool = False
 
 
 class ListingCreate(BaseModel):
@@ -20,6 +28,7 @@ class ListingCreate(BaseModel):
     currency: str = Field(default="LKR", max_length=3)
     location: Optional[str] = Field(default=None, max_length=255)
     images: list[str] = Field(default_factory=list)
+    customization_fields: list[CustomizationField] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def _check_category(self):
@@ -43,6 +52,7 @@ class ListingUpdate(BaseModel):
     location: Optional[str] = Field(default=None, max_length=255)
     images: Optional[list[str]] = None
     is_active: Optional[bool] = None
+    customization_fields: Optional[list[CustomizationField]] = None
 
 
 class ListingOut(BaseModel):
@@ -60,6 +70,7 @@ class ListingOut(BaseModel):
     currency: str
     location: Optional[str]
     images: list[str]
+    customization_fields: list[CustomizationField] = Field(default_factory=list)
     is_active: bool
     status: ListingStatus
     created_at: datetime

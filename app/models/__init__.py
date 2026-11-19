@@ -12,6 +12,7 @@ from app.models.enums import (
     ListingKind,
     ListingStatus,
     ListingType,
+    OrderStatus,
     UserRole,
 )
 from app.models.conversation import Conversation
@@ -19,6 +20,7 @@ from app.models.favorite import Favorite
 from app.models.follow import Follow
 from app.models.listing import Listing
 from app.models.message import Message
+from app.models.order import Order
 from app.models.review import Review
 from app.models.seller import SellerDetail
 from app.models.user import User
@@ -37,9 +39,11 @@ __all__ = [
     "Review",
     "Conversation",
     "Message",
+    "Order",
     "UserRole",
     "ApprovalStatus",
     "ListingType",
     "ListingKind",
     "ListingStatus",
+    "OrderStatus",
 ]

@@ -14,11 +14,10 @@ from app.api.deps import CurrentUser, DbDep, PaginationDep
 from app.core import chat_ops
 from app.core.ws_manager import manager
 from app.models.conversation import Conversation
-from app.models.enums import ApprovalStatus
 from app.models.message import Message
-from app.models.seller import SellerDetail
 from app.schemas.common import Page
-from app.schemas.conversation import ConversationCreate, ConversationOut, MessageOut
+from app.schemas.conversation import ConversationOut, MessageOut
+from app.schemas.order import OrderSummary
 
 router = APIRouter(prefix="/me/conversations", tags=["conversations"])
 
@@ -26,6 +25,8 @@ router = APIRouter(prefix="/me/conversations", tags=["conversations"])
 def _to_out(db: Session, conv: Conversation, user_id: uuid.UUID) -> ConversationOut:
     out = ConversationOut.model_validate(conv)
     out.unread_count = chat_ops.unread_count(db, conv.id, user_id)
+    if conv.order is not None:
+        out.order = OrderSummary.model_validate(conv.order)
     return out
 
 
@@ -45,37 +46,6 @@ def list_conversations(user: CurrentUser, db: DbDep, page: PaginationDep) -> Pag
     ).all()
     items = [_to_out(db, c, user.id) for c in rows]
     return Page(items=items, total=total, limit=page.limit, offset=page.offset)
-
-
-@router.post("", response_model=ConversationOut, status_code=status.HTTP_201_CREATED)
-def start_conversation(payload: ConversationCreate, user: CurrentUser, db: DbDep) -> ConversationOut:
-    seller = db.get(SellerDetail, payload.seller_id)
-    if seller is None or seller.approval_status != ApprovalStatus.approved:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Seller not found.")
-    if seller.user_id == user.id:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="You cannot start a conversation with your own store.",
-        )
-
-    existing = db.scalar(
-        select(Conversation).where(
-            Conversation.customer_id == user.id,
-            Conversation.seller_id == payload.seller_id,
-        )
-    )
-    if existing is not None:
-        return _to_out(db, existing, user.id)
-
-    conv = Conversation(
-        customer_id=user.id,
-        seller_id=payload.seller_id,
-        listing_id=payload.listing_id,
-    )
-    db.add(conv)
-    db.commit()
-    db.refresh(conv)
-    return _to_out(db, conv, user.id)
 
 
 @router.get("/{conversation_id}/messages", response_model=Page[MessageOut])
