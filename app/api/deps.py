@@ -1,7 +1,7 @@
 """Shared FastAPI dependencies: auth, roles, pagination."""
 import uuid
 from dataclasses import dataclass
-from typing import Annotated, Callable
+from typing import Annotated, Callable, Optional
 
 from fastapi import Depends, HTTPException, Query, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -161,8 +161,31 @@ def get_or_create_user(
     return user
 
 
+def get_optional_user(
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_scheme)],
+    db: Annotated[Session, Depends(get_db)],
+) -> Optional[User]:
+    """Like `get_current_user`, but returns None instead of raising when the
+    caller is anonymous or the token is invalid. Used by public endpoints that
+    enrich their response for a signed-in viewer (e.g. `liked_by_me`) without
+    requiring auth."""
+    if credentials is None or not credentials.credentials:
+        return None
+    try:
+        payload = decode_access_token(credentials.credentials)
+        sub = payload.get("sub")
+        user_id = uuid.UUID(str(sub))
+    except (TokenError, ValueError, TypeError):
+        return None
+    user = db.get(User, user_id)
+    if user is None or not user.is_active:
+        return None
+    return user
+
+
 CurrentUser = Annotated[User, Depends(get_current_user)]
 BootstrapUser = Annotated[User, Depends(get_or_create_user)]
+OptionalUser = Annotated[Optional[User], Depends(get_optional_user)]
 
 
 def require_role(*roles: UserRole) -> Callable[[User], User]:

@@ -22,6 +22,7 @@ from app.models.listing import Listing
 from app.models.message import Message
 from app.models.order import Order
 from app.models.review import Review
+from app.models.review_like import ReviewLike
 from app.models.seller import SellerDetail
 from app.models.user import User
 
@@ -37,6 +38,7 @@ __all__ = [
     "Favorite",
     "Follow",
     "Review",
+    "ReviewLike",
     "Conversation",
     "Message",
     "Order",

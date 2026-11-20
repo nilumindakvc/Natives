@@ -3,12 +3,14 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 
-from app.api.deps import DbDep, PaginationDep
+from app.api.deps import DbDep, OptionalUser, PaginationDep
 from app.api.routes.listings import public_listings_stmt
 from app.models.enums import ApprovalStatus
 from app.models.listing import Listing
 from app.models.review import Review
+from app.models.review_like import ReviewLike
 from app.models.seller import SellerDetail
 from app.schemas.common import Page
 from app.schemas.interactions import ReviewOut
@@ -44,7 +46,31 @@ def get_seller_listings(seller_id: uuid.UUID, db: DbDep, page: PaginationDep) ->
 
 
 @router.get("/{seller_id}/reviews", response_model=list[ReviewOut])
-def get_seller_reviews(seller_id: uuid.UUID, db: DbDep) -> list[Review]:
+def get_seller_reviews(seller_id: uuid.UUID, db: DbDep, user: OptionalUser) -> list[ReviewOut]:
     _get_public_seller(seller_id, db)
-    stmt = select(Review).where(Review.seller_id == seller_id).order_by(Review.created_at.desc())
-    return list(db.scalars(stmt).all())
+    reviews = list(
+        db.scalars(
+            select(Review)
+            .options(joinedload(Review.author))
+            .where(Review.seller_id == seller_id)
+            .order_by(Review.created_at.desc())
+        ).all()
+    )
+
+    liked_ids: set[uuid.UUID] = set()
+    if user is not None and reviews:
+        liked_ids = set(
+            db.scalars(
+                select(ReviewLike.review_id).where(
+                    ReviewLike.user_id == user.id,
+                    ReviewLike.review_id.in_([r.id for r in reviews]),
+                )
+            ).all()
+        )
+
+    out: list[ReviewOut] = []
+    for r in reviews:
+        item = ReviewOut.model_validate(r)
+        item.liked_by_me = r.id in liked_ids
+        out.append(item)
+    return out

@@ -4,11 +4,13 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, HTTPException, Query, status
 from sqlalchemy import Select, func, or_, select
+from sqlalchemy.orm import joinedload
 
-from app.api.deps import DbDep, PaginationDep
+from app.api.deps import DbDep, OptionalUser, PaginationDep
 from app.models.enums import ApprovalStatus, ListingKind, ListingStatus, ListingType
 from app.models.listing import Listing
 from app.models.review import Review
+from app.models.review_like import ReviewLike
 from app.models.seller import SellerDetail
 from app.schemas.common import Page
 from app.schemas.interactions import ReviewOut
@@ -76,13 +78,33 @@ def get_listing(listing_id: uuid.UUID, db: DbDep) -> Listing:
 
 
 @router.get("/{listing_id}/reviews", response_model=list[ReviewOut])
-def get_listing_reviews(listing_id: uuid.UUID, db: DbDep) -> list[Review]:
+def get_listing_reviews(listing_id: uuid.UUID, db: DbDep, user: OptionalUser) -> list[ReviewOut]:
     exists = db.scalar(public_listings_stmt().where(Listing.id == listing_id))
     if exists is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Listing not found.")
-    stmt = (
-        select(Review)
-        .where(Review.listing_id == listing_id)
-        .order_by(Review.created_at.desc())
+    reviews = list(
+        db.scalars(
+            select(Review)
+            .options(joinedload(Review.author))
+            .where(Review.listing_id == listing_id)
+            .order_by(Review.created_at.desc())
+        ).all()
     )
-    return list(db.scalars(stmt).all())
+
+    liked_ids: set[uuid.UUID] = set()
+    if user is not None and reviews:
+        liked_ids = set(
+            db.scalars(
+                select(ReviewLike.review_id).where(
+                    ReviewLike.user_id == user.id,
+                    ReviewLike.review_id.in_([r.id for r in reviews]),
+                )
+            ).all()
+        )
+
+    out: list[ReviewOut] = []
+    for r in reviews:
+        item = ReviewOut.model_validate(r)
+        item.liked_by_me = r.id in liked_ids
+        out.append(item)
+    return out

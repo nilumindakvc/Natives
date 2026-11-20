@@ -11,6 +11,7 @@ from app.api.routes import (
     listings,
     me,
     orders,
+    reviews,
     seller,
     sellers,
 )
@@ -27,3 +28,4 @@ api_router.include_router(admin.router)
 api_router.include_router(conversations.router)
 api_router.include_router(chat_ws.router)
 api_router.include_router(orders.router)
+api_router.include_router(reviews.router)
