@@ -28,8 +28,11 @@ def _get_public_seller(seller_id: uuid.UUID, db) -> SellerDetail:
 
 
 @router.get("/{seller_id}", response_model=SellerOut)
-def get_seller(seller_id: uuid.UUID, db: DbDep) -> SellerDetail:
-    return _get_public_seller(seller_id, db)
+def get_seller(seller_id: uuid.UUID, db: DbDep) -> SellerOut:
+    seller = _get_public_seller(seller_id, db)
+    out = SellerOut.model_validate(seller)
+    out.avatar_url = seller.user.avatar_url if seller.user else None
+    return out
 
 
 @router.get("/{seller_id}/listings", response_model=Page[ListingOut])

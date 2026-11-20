@@ -40,6 +40,9 @@ class SellerOut(BaseModel):
     approval_status: ApprovalStatus
     created_at: datetime
     updated_at: datetime
+    # The seller user's profile avatar (preset key or photo URL), populated on
+    # the public storefront. Not set everywhere SellerOut is used.
+    avatar_url: Optional[str] = None
 
 
 class SellerAdminOut(SellerOut):
