@@ -59,6 +59,8 @@ class ReviewOut(BaseModel):
     liked_by_me: bool = False
     seller_reply: Optional[str] = None
     seller_reply_at: Optional[datetime] = None
+    seller_name: Optional[str] = None
+    seller_avatar_url: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime] = None
     author: Optional[UserPublicOut] = None

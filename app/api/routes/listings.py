@@ -85,7 +85,7 @@ def get_listing_reviews(listing_id: uuid.UUID, db: DbDep, user: OptionalUser) ->
     reviews = list(
         db.scalars(
             select(Review)
-            .options(joinedload(Review.author))
+            .options(joinedload(Review.author), joinedload(Review.seller).joinedload(SellerDetail.user))
             .where(Review.listing_id == listing_id)
             .order_by(Review.created_at.desc())
         ).all()
@@ -106,5 +106,8 @@ def get_listing_reviews(listing_id: uuid.UUID, db: DbDep, user: OptionalUser) ->
     for r in reviews:
         item = ReviewOut.model_validate(r)
         item.liked_by_me = r.id in liked_ids
+        if r.seller is not None:
+            item.seller_name = r.seller.business_name
+            item.seller_avatar_url = r.seller.user.avatar_url if r.seller.user else None
         out.append(item)
     return out

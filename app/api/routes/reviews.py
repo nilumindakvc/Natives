@@ -28,6 +28,9 @@ SellerUser = Depends(require_seller)
 
 def _to_out(db: Session, review: Review, user_id: Optional[uuid.UUID]) -> ReviewOut:
     out = ReviewOut.model_validate(review)
+    if review.seller is not None:
+        out.seller_name = review.seller.business_name
+        out.seller_avatar_url = review.seller.user.avatar_url if review.seller.user else None
     if user_id is not None:
         liked = db.scalar(
             select(ReviewLike.id).where(
