@@ -1,8 +1,14 @@
 """Current-user profile endpoints."""
+import uuid
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, status
 
 from app.api.deps import BootstrapUser, CurrentUser, DbDep
+from app.core.config import settings
+from app.core.supabase import SupabaseNotConfigured, create_signed_upload_url
 from app.models.enums import UserRole
+from app.schemas.storage import SignedUploadRequest, SignedUploadResponse
 from app.schemas.user import UserOut, UserRegister, UserUpdate
 
 router = APIRouter(prefix="/me", tags=["profile"])
@@ -52,3 +58,17 @@ def update_me(payload: UserUpdate, user: CurrentUser, db: DbDep) -> UserOut:
     db.commit()
     db.refresh(user)
     return user
+
+
+@router.post("/avatar/signed-url", response_model=SignedUploadResponse)
+def avatar_signed_url(payload: SignedUploadRequest, user: CurrentUser) -> SignedUploadResponse:
+    """A signed upload URL for the current user's profile image, usable by any
+    authenticated user (customer or seller). Always targets the avatars bucket,
+    namespaced by the user's id."""
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    path = f"{user.id}/{ts}-{uuid.uuid4().hex[:8]}-{payload.filename}"
+    try:
+        result = create_signed_upload_url(settings.avatars_bucket, path)
+    except SupabaseNotConfigured as exc:
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
+    return SignedUploadResponse(**result)
