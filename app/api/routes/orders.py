@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import CurrentUser, DbDep, PaginationDep, require_seller
 from app.core import chat_ops
+from app.core.ws_manager import manager, push_sync
 from app.models.conversation import Conversation
 from app.models.enums import ApprovalStatus, OrderStatus
 from app.models.listing import Listing
@@ -82,7 +83,12 @@ def create_order(payload: OrderCreate, user: CurrentUser, db: DbDep) -> OrderOut
     db.add(conversation)
     db.commit()
     db.refresh(order)
-    return _to_out(db, order)
+    out = _to_out(db, order)
+    # Live-notify the seller over the shared per-user socket (same one chat
+    # uses) so their Orders tab/badge updates without a manual refresh.
+    if manager.is_online(seller.user_id):
+        push_sync(seller.user_id, {"type": "order_created", "order": out.model_dump(mode="json")})
+    return out
 
 
 @router.get("", response_model=Page[OrderOut])
@@ -128,7 +134,11 @@ def quote_order(order_id: uuid.UUID, payload: OrderQuote, db: DbDep, user: User 
     order.status = OrderStatus.quoted
     db.commit()
     db.refresh(order)
-    return _to_out(db, order)
+    out = _to_out(db, order)
+    # Live-notify the customer so their order updates without a manual refresh.
+    if manager.is_online(order.customer_id):
+        push_sync(order.customer_id, {"type": "order_quoted", "order": out.model_dump(mode="json")})
+    return out
 
 
 @router.post("/{order_id}/confirm", response_model=OrderOut)
@@ -149,4 +159,9 @@ def confirm_order(order_id: uuid.UUID, user: CurrentUser, db: DbDep) -> OrderOut
     order.status = OrderStatus.confirmed
     db.commit()
     db.refresh(order)
-    return _to_out(db, order)
+    out = _to_out(db, order)
+    # Live-notify the seller so their order updates without a manual refresh.
+    seller_user_id = db.scalar(select(SellerDetail.user_id).where(SellerDetail.id == order.seller_id))
+    if seller_user_id is not None and manager.is_online(seller_user_id):
+        push_sync(seller_user_id, {"type": "order_confirmed", "order": out.model_dump(mode="json")})
+    return out

@@ -7,6 +7,7 @@ ever needs to fan out across multiple workers/instances.
 import uuid
 from collections import defaultdict
 
+from anyio.from_thread import run as run_from_thread
 from fastapi import WebSocket
 
 
@@ -39,3 +40,17 @@ class ConnectionManager:
 
 
 manager = ConnectionManager()
+
+
+def push_sync(user_id: uuid.UUID, payload: dict) -> None:
+    """Push a payload to a user's live socket(s) from a *synchronous* context,
+    such as a regular (non-websocket) REST route handler — these run in
+    FastAPI's threadpool, not on the event loop that owns the sockets.
+    `anyio.from_thread.run` bridges back onto that loop; if there isn't one
+    to bridge to (e.g. a standalone script), this is a silent no-op rather
+    than failing the caller's request.
+    """
+    try:
+        run_from_thread(manager.send_to_user, user_id, payload)
+    except RuntimeError:
+        pass
