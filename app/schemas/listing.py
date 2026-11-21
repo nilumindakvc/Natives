@@ -10,11 +10,16 @@ from app.models.enums import ListingKind, ListingStatus, ListingType
 
 
 class CustomizationField(BaseModel):
-    """One seller-defined input a customer fills when ordering this listing."""
+    """One seller-defined input a customer fills when ordering this listing.
+
+    If `options` is non-empty, the customer picks from them (a dropdown);
+    otherwise it's a free input of the given `type`.
+    """
     key: str = Field(min_length=1, max_length=64)
     label: str = Field(min_length=1, max_length=120)
     type: Literal["text", "number", "date"] = "text"
     required: bool = False
+    options: list[str] = Field(default_factory=list)
 
 
 class ListingCreate(BaseModel):
